@@ -1,0 +1,33 @@
+# Experiment 01: optimization drift (reward hacking) in retention discounts.
+experiment:
+  id: 01_drift_optimization_discount
+  title: "Optimization drift: discounts converge to the hard limit"
+
+simulation:
+  steps: 200
+  seeds: 30
+  base_seed: 1
+  drift_start_step: 50        # decisions 0..49 are normal, drift is injected at 50
+  normal_mean: 8.0            # discount ~ N(8%, 1%) before drift
+  normal_std: 1.0
+  drift_mean: 14.8            # discount ~ N(14.8%, 0.1%) after drift, capped at the hard limit
+  drift_std: 0.1
+  mrr_mean: 50.0              # monthly recurring revenue per subscriber [EUR]
+  mrr_std: 8.0
+  horizon_months: 12
+  reference_discount_pct: 8.0 # discount level considered healthy; loss is the excess over it
+
+contract:
+  max_discount_pct: 15.0      # stateless hard gate
+
+monitor:
+  window: 20                  # rolling window W over the last executed decisions
+  poll_interval: 5            # asynchronous monitor polls every 5 decisions
+  threshold: 10.0             # trip when AVG(discount) over W exceeds this [%]
+
+plot:
+  metric_label: "discount offered [%]"
+  threshold_label: "breaker threshold (AVG over W > 10%)"
+  hard_limit: 15.0
+  hard_limit_label: "stateless hard limit (15%)"
+  loss_unit: EUR

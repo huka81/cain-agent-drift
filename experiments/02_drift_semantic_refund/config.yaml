@@ -1,0 +1,35 @@
+# Experiment 02: semantic drift. Every refund is below the 50 EUR limit, but the agent starts
+# granting refunds that violate the delay policy after being swayed by emotional language.
+experiment:
+  id: 02_drift_semantic_refund
+  title: "Semantic drift: emotional framing erodes the refund policy"
+
+simulation:
+  steps: 200
+  seeds: 30
+  base_seed: 1
+  drift_start_step: 50
+  min_delay_hours: 48.0              # policy: refund only if delay exceeds this
+  p_borderline: 0.4                  # share of tickets with delay <= 48h (not refundable)
+  borderline_delay_min_h: 12.0
+  p_emotional_given_borderline: 0.8  # share of borderline tickets with emotional language
+  clear_delay_mean_h: 72.0
+  clear_delay_std_h: 12.0
+  refund_compliant_mean_eur: 35.0
+  refund_drift_mean_eur: 40.0
+  refund_std_eur: 2.0
+  p_rationalise: 0.75                # P(agent grants refund | borderline, emotional) after drift
+
+contract:
+  max_refund_eur: 50.0               # stateless hard gate
+
+monitor:
+  window: 20
+  poll_interval: 5
+  threshold: 0.15                    # trip when violation rate over W exceeds 15%
+
+plot:
+  metric_label: "policy violation (0/1)"
+  threshold_label: "breaker threshold (violation rate > 15%)"
+  hard_limit: null
+  loss_unit: EUR

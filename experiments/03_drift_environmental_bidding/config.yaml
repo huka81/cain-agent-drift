@@ -1,0 +1,32 @@
+# Experiment 03: environmental drift. The agent follows a rising market CPC, always below the
+# 2.00 USD contract ceiling, until each click costs more than it is worth (LTV).
+experiment:
+  id: 03_drift_environmental_bidding
+  title: "Environmental drift: rising market CPC turns bidding unprofitable"
+
+simulation:
+  steps: 200
+  seeds: 30
+  base_seed: 1
+  drift_start_step: 50
+  market_cpc_start: 1.20             # USD per click before drift
+  market_cpc_end: 1.98               # USD per click once the ramp completes
+  ramp_steps: 80                     # linear market ramp length after drift onset
+  market_cpc_noise: 0.02
+  bid_margin: 0.02                   # agent bids market CPC + margin
+  clicks_per_cycle: 100
+
+contract:
+  max_cpc_usd: 2.00                  # stateless hard gate
+
+monitor:
+  window: 10
+  poll_interval: 5
+  threshold: 1.80                    # LTV per click [USD]; trip when AVG(bid) over W exceeds it
+
+plot:
+  metric_label: "CPC bid [USD]"
+  threshold_label: "breaker threshold (AVG bid over W > LTV 1.80)"
+  hard_limit: 2.00
+  hard_limit_label: "stateless hard limit (2.00 USD)"
+  loss_unit: USD
