@@ -77,13 +77,19 @@ The monitor reads the relation `decision_audit_events`, where each executed deci
 by its DFID with the monitored value in `detail_json`:
 
 ```sql
-SELECT COUNT(*) AS n, AVG(m) AS value FROM (
-  SELECT CAST(json_extract(detail_json, '$.metric') AS REAL) AS m
+SELECT n, value FROM (
+  SELECT id,
+         COUNT(*) OVER w AS n,
+         AVG(CAST(json_extract(detail_json, '$.metric') AS REAL)) OVER w AS value
   FROM decision_audit_events
   WHERE event_type = 'DECISION_EXECUTED' AND json_extract(detail_json, '$.run_id') = ?
-  ORDER BY id DESC LIMIT ?)           -- W
+  WINDOW w AS (ORDER BY id ROWS BETWEEN ? PRECEDING AND CURRENT ROW))   -- ? = W-1
+ORDER BY id DESC LIMIT 1
 ```
 
+This is a SQL window function: for every executed decision of the run it returns the window size `n` and
+the windowed mean over the last `W` executed decisions; the newest row is the current state (without
+`LIMIT 1` it returns the whole series, usable for audit). It needs SQLite 3.25 or newer (3.45 was used).
 The breaker trips when `n >= W` and `value > threshold`, then calls `AgentRegistry.set_agent_status` and
 records a `CIRCUIT_BREAKER_TRIPPED` event (with the window value and threshold). The experiments therefore
 use one audit relation, not the full multi-relation lineage model, and the monitor runs as a

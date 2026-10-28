@@ -106,22 +106,33 @@ def reset_db(db_path: Path) -> None:
 
 
 def rolling_window_query(db_path: str, run_id: str, window: int) -> Dict[str, Any]:
-    """Asynchronous monitor query: aggregate of the last ``window`` executed decisions."""
+    """Asynchronous monitor query: SQL window function over the last ``window`` executed decisions.
+
+    ``COUNT/AVG(...) OVER w`` with the frame ``ROWS BETWEEN W-1 PRECEDING AND CURRENT ROW`` yields,
+    for every executed decision, the window size n and the windowed mean Z_W; the newest row is the
+    current state. n < W until the window is full.
+    """
     sql = """
-        SELECT COUNT(*) AS n, AVG(m) AS value FROM (
-            SELECT CAST(json_extract(detail_json, '$.metric') AS REAL) AS m
+        SELECT n, value FROM (
+            SELECT id,
+                   COUNT(*) OVER w AS n,
+                   AVG(CAST(json_extract(detail_json, '$.metric') AS REAL)) OVER w AS value
             FROM decision_audit_events
             WHERE event_type = 'DECISION_EXECUTED'
               AND json_extract(detail_json, '$.run_id') = ?
-            ORDER BY id DESC
-            LIMIT ?
+            WINDOW w AS (ORDER BY id ROWS BETWEEN ? PRECEDING AND CURRENT ROW)
         )
+        ORDER BY id DESC
+        LIMIT 1
     """
     conn = sqlite3.connect(db_path)
     try:
-        n, value = conn.execute(sql, (run_id, window)).fetchone()
+        row = conn.execute(sql, (run_id, window - 1)).fetchone()
     finally:
         conn.close()
+    if row is None:
+        return {"n": 0, "value": None}
+    n, value = row
     return {"n": int(n), "value": None if value is None else float(value)}
 
 
